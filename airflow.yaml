@@ -1,0 +1,107 @@
+version: '3.4' # Docker version
+
+x-common:
+  &common
+  image: apache/airflow:2.3.4 # image name for airflow
+  user: "${AIRFLOW_UID:-50000}:0" 
+  env_file: # attach the environment file
+    - .env
+  volumes:
+    - ./dags:/opt/airflow/dags # clone everything happened in /opt/airflow/dags (in Docker operating system) to local ./dags
+    - ./logs:/opt/airflow/logs # clone everything happened in /opt/airflow/logs (in Docker operating system) to local ./logs
+    - ./plugins:/opt/airflow/plugins # clone everything happened in /opt/airflow/plugins (in Docker operating system) to local ./plugins
+    - ./data:/opt/airflow/data # clone everything happened in /opt/airflow/data (in Docker operating system) to local ./data
+    - ./models:/opt/airflow/models # clone everything happened in /opt/airflow/models (in Docker operating system) to local ./models
+    - /var/run/docker.sock:/var/run/docker.sock # socket to connect local and Docker operating system
+
+x-depends-on:
+  &depends-on
+  depends_on:
+    postgres:
+      condition: service_healthy # condition, postgres must be in healthy condition
+    airflow-init:
+      condition: service_completed_successfully # airflow should done everything complete and successful
+
+services:
+  postgres: # services for postgres
+    image: postgres:13 # create an image for connecting Docker to PostgreS
+    container_name: postgres-m3 # name of the container
+    ports:
+      - "5434:5432" # run this image in local 5434 and 
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    volumes :
+      - ./P2M3_nicku_perdana_data_raw.csv:/files/P2M3_nicku_perdana_data_raw.csv  # clone raw CSV in root folder to Docker OS>files
+    env_file:
+      - .env # define the environment
+
+  scheduler: # services for auto-scheduler
+    <<: [*common, *depends-on]
+    container_name: airflow-scheduler-m3 # define a scheduler
+    command: scheduler # set a command to schedule
+    restart: on-failure # 
+    ports:
+      - "8793:8793" # connect local port 8793 to Docker OS port 8793
+
+  webserver: # services for web-server UI
+    <<: [*common, *depends-on]
+    container_name: airflow-webserver-m3 # name the container name
+    restart: always
+    command: webserver
+    ports:
+      - "8080:8080" # set the local port (8080) that connect to the port 8080 of Docker OS
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+  
+  airflow-init: # initialize airflow
+    <<: *common
+    container_name: airflow-init-m3 # name the container name
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /sources/logs /sources/dags /sources/plugins 
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        exec /entrypoint airflow version
+
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1 # create image for elasticsearch
+    container_name: elasticsearch-m3 # name of the container of elasticsearch
+    restart: always
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+      - xpack.reporting.capture.browser.chromium.disableSandbox=False
+      - xpack.reporting.enabled:False
+    ulimits:
+      memlock:
+        soft: 50000
+        hard: 50000
+      nofile:
+        soft: 65536 # set the memory size 65536
+        hard: 65536 # set the memory size 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+  kibana:
+    container_name: kibana-m3
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    restart: always
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200  # elasticsearch docker container address in which Kibana will connect
+    ports:
+      - 5601:5601 # connect local port 5601 to Docker OS pport 5601
+    depends_on:
+      - elasticsearch # kibana will start when elasticsearch has started
+volumes:
+  elasticsearch-data:
+

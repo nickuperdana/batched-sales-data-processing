@@ -1,0 +1,62 @@
+-- DATASET URL
+https://www.kaggle.com/datasets/ammaraahmad/us-ecommerce-record-2020;
+
+
+-- SYNTAX DDL: CREATE DATABASE
+CREATE DATABASE milestone_3;
+
+
+-- SYNTAX DDL: CREATE TABLE
+CREATE TABLE table_m3 (
+	"Order Date" varchar(255),
+	"Row ID" int,
+	"Order ID" varchar(255),
+	"Ship Mode" varchar(255),
+	"Customer ID" varchar(255),
+	"Segment" varchar(255),
+	"Country" varchar(255),
+	"City" varchar(255),
+	"State" varchar(255),
+	"Postal Code" int,
+	"Region" varchar(255),
+	"Product ID" varchar(255),
+	"Category" varchar(255),
+	"Sub-Category" varchar(255),
+	"Product Name" varchar(255),
+	"Sales" float8,
+	"Quantity" int,
+	"Discount" float8,
+	"Profit" float8
+);
+
+
+-- SYNTAX DQL: CHECK BLANK TABLE
+SELECT * from table_m3;
+
+
+-- SYNTAX DML: COPY CSV CONTENT TO DATABASE.TABLE
+COPY table_m3(
+	"Order Date",
+	"Row ID",
+	"Order ID",
+	"Ship Mode",
+	"Customer ID",
+	"Segment",
+	"Country",
+	"City",
+	"State",
+	"Postal Code",
+	"Region",
+	"Product ID",
+	"Category",
+	"Sub-Category",
+	"Product Name",
+	"Sales",
+	"Quantity",
+	"Discount",
+	"Profit"
+)
+FROM '/files/P2M3_nicku_perdana_data_raw.csv' -- Access the CSV source from Docker, since we have connected our PostgreS server to the port used to connect with Docker OS-postgres_m3
+DELIMITER ','
+CSV HEADER
+ENCODING 'windows-1251';
